@@ -6,6 +6,9 @@ edition = "2021"
 [dependencies]
 embedded-hal = "1.0.0-alpha.9"
 
+# [dev-dependencies]
+# embedded-hal-mock= "0.8"
+
 [features]
 register-buffer = []
 default = ["register-buffer"]
