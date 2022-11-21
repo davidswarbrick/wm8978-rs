@@ -24,6 +24,15 @@ pub enum DriverError {
     ResetTimeout,
 }
 
+
+pub enum Eq {
+    One,
+    Two,
+    Three,
+    Four,
+    Five
+}
+
 pub struct Wm8978Driver<I2C, Mode>
 where
     I2C: I2c,
@@ -150,6 +159,21 @@ where
             false => self.set_aux_gain(0)?,
         };
         Ok(())
+    }
+
+    pub fn set_eq(&mut self, eq: Eq, cfreq: u8, gain: u8)  -> Result<(), DriverError> {
+        let mut reg_val = 0;
+        if gain < 24 {
+            reg_val |= 24-gain as u16;
+        }
+        reg_val |= (cfreq as u16 & 3) << 5;
+        match eq {
+            Eq::One => self.write_reg(18, reg_val & 0x100),
+            Eq::Two => self.write_reg(19, reg_val),
+            Eq::Three => self.write_reg(20, reg_val),
+            Eq::Four => self.write_reg(21, reg_val),
+            Eq::Five => self.write_reg(22, reg_val)
+        }
     }
 }
 
