@@ -24,13 +24,35 @@ pub enum DriverError {
     ResetTimeout,
 }
 
-
 pub enum Eq {
     One,
     Two,
     Three,
     Four,
-    Five
+    Five,
+}
+
+pub enum SampleRate {
+    FortyEightkHz,
+    ThirtyTwokHz,
+    TwentyFourkHz,
+    SixteenkHz,
+    TwelvekHz,
+    EightkHz,
+}
+
+pub enum I2SWordLength {
+    SixteenBits,
+    TwentyBits,
+    TwentyFourBits,
+    ThirtyTwoBits,
+}
+
+pub enum DataFormat {
+    RightJustified,
+    LeftJustified,
+    I2S,
+    DspPCM,
 }
 
 pub struct Wm8978Driver<I2C, Mode>
@@ -161,10 +183,10 @@ where
         Ok(())
     }
 
-    pub fn set_eq(&mut self, eq: Eq, cfreq: u8, gain: u8)  -> Result<(), DriverError> {
+    pub fn set_eq(&mut self, eq: Eq, cfreq: u8, gain: u8) -> Result<(), DriverError> {
         let mut reg_val = 0;
         if gain < 24 {
-            reg_val |= 24-gain as u16;
+            reg_val |= 24 - gain as u16;
         }
         reg_val |= (cfreq as u16 & 3) << 5;
         match eq {
@@ -172,8 +194,72 @@ where
             Eq::Two => self.write_reg(19, reg_val),
             Eq::Three => self.write_reg(20, reg_val),
             Eq::Four => self.write_reg(21, reg_val),
-            Eq::Five => self.write_reg(22, reg_val)
+            Eq::Five => self.write_reg(22, reg_val),
         }
+    }
+
+    pub fn set_outputs(&mut self, dac: bool, bypass: bool) -> Result<(), DriverError> {
+        let mut reg_val = match dac {
+            true => 1,
+            false => 0,
+        };
+        if bypass {
+            reg_val |= 1 << 1; // BYPASS
+            reg_val |= 5 << 2; // 0dB
+        }
+        self.write_reg(50, reg_val)?;
+        self.write_reg(51, reg_val)
+    }
+
+    pub fn set_volume_headphone(&mut self, vol_l: u8, vol_r: u8) -> Result<(), DriverError> {
+        let reg_l = match vol_l {
+            0 => 1 << 6,
+            _ => vol_l & 0x3F,
+        };
+        let reg_r = match vol_r {
+            0 => 1 << 6,
+            _ => vol_r & 0x3F,
+        };
+        self.write_reg(52, reg_l as u16)?;
+        self.write_reg(53, (reg_r as u16) | 1 << 8) // HPVU = 1
+    }
+    pub fn set_volume_speaker(&mut self, vol: u8) -> Result<(), DriverError> {
+        let reg_val = match vol {
+            0 => 1 << 6,
+            _ => vol & 0x3F,
+        };
+        self.write_reg(54, reg_val as u16)?;
+        self.write_reg(55, (reg_val as u16) | 1 << 8) // SPKVU = 1
+    }
+    pub fn set_sample_rate(&mut self, sample_rate: SampleRate) -> Result<(), DriverError> {
+        let reg_val = match sample_rate {
+            SampleRate::FortyEightkHz => 0x0,
+            SampleRate::ThirtyTwokHz => 0x2,
+            SampleRate::TwentyFourkHz => 0x4,
+            SampleRate::SixteenkHz => 0x6,
+            SampleRate::TwelvekHz => 0x8,
+            SampleRate::EightkHz => 0xA,
+        };
+        self.write_reg(7, reg_val)
+    }
+    pub fn set_i2s_configuration(
+        &mut self,
+        format: DataFormat,
+        len: I2SWordLength,
+    ) -> Result<(), DriverError> {
+        let reg_len = match len {
+            I2SWordLength::SixteenBits => 0x0,
+            I2SWordLength::TwentyBits => 0x1,
+            I2SWordLength::TwentyFourBits => 0x10,
+            I2SWordLength::ThirtyTwoBits => 0x11,
+        };
+        let reg_fmt = match format {
+            DataFormat::RightJustified => 0x0,
+            DataFormat::LeftJustified => 0x1,
+            DataFormat::I2S => 0x10,
+            DataFormat::DspPCM => 0x11,
+        };
+        self.write_reg(4, (reg_fmt << 3) | (reg_len << 5))
     }
 }
 
